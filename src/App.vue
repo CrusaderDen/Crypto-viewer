@@ -63,8 +63,8 @@
 
                      </div>
                   </template>
-                  <div v-if="duplicateMessage" class="text-sm text-red-600">
-                     Такой тикер уже добавлен
+                  <div v-if="showMessage" class="text-sm text-red-600">
+                     {{ message }}
                   </div>
                </div>
             </div>
@@ -184,13 +184,14 @@ export default {
 
    data() {
       return {
-         ticker: "", //то что вводим в инпут, связано с полем через v-model="ticker"
+         ticker: "",
          tickers: [],
          sel: null,
          graph: [],
-         duplicateMessage: false,
+         showMessage: false,
          coins: "",
          tips: [],
+         message: '',
       }
    },
 
@@ -208,10 +209,24 @@ export default {
             name: this.ticker.toUpperCase(),
             price: "-",
          }
-
+         
          if (this.tickers.find((t) => t.name === currentTicker.name)) {
-            this.duplicateMessage = true
-         } else {
+           this.message='Такой тикер уже добавлен'
+           this.showMessage=true
+         } 
+         else if (currentTicker.name==='') {
+            this.message='Выберите тикер'
+            this.showMessage=true
+         }
+         else if (currentTicker.name==='КАБАН') {
+            this.message='ты кабан'
+            this.showMessage=true
+         }
+         else if (this.tips.length===0) {
+            this.message='Такого тикера не существует'
+            this.showMessage=true
+         }
+         else {
             this.tickers.push(currentTicker)
             setInterval(async () => {
                const f = await fetch(
@@ -253,6 +268,7 @@ export default {
          )
       },
       autoComplite() {
+         this.showMessage=false
          console.clear()
          this.tips = []
          let input = this.ticker.toUpperCase()
