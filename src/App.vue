@@ -60,7 +60,6 @@
                         >
                            {{ tip.Symbol }}
                         </span>
-
                      </div>
                   </template>
                   <div v-if="showMessage" class="text-sm text-red-600">
@@ -92,9 +91,29 @@
 
          <template v-if="tickers.length">
             <hr class="w-full border-t border-gray-600 my-4" />
+            <div>
+               <button
+                  v-if="page > 1"
+                  @click="page = page - 1"
+                  class="my-4 mx-2 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+               >
+                  Назад
+               </button>
+               <button
+                  v-if="hasNextPage"
+                  @click="page = page + 1"
+                  class="my-4 mx-2 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+               >
+                  Вперед
+               </button>
+            </div>
+            Фильтр:
+            <input v-model="filter" class="mx-4" />
+            <div></div>
+            <hr class="w-full border-t border-gray-600 my-4" />
             <dl class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
                <div
-                  v-for="t in tickers"
+                  v-for="t in filteredTickers()"
                   :key="t.name"
                   @click="select(t)"
                   :class="{
@@ -132,6 +151,8 @@
                   </button>
                </div>
             </dl>
+            <hr class="w-full border-t border-gray-600 my-4" />
+            <!-- <div>Страницa: {{ page }}/{{ totalPages }}</div> -->
             <hr class="w-full border-t border-gray-600 my-4" />
          </template>
          <section v-if="sel" class="relative">
@@ -191,15 +212,30 @@ export default {
          showMessage: false,
          coins: "",
          tips: [],
-         message: '',
+         message: "",
+         page: 1,
+         // totalPages: 1,
+         filter: "",
+         hasNextPage: true,
       }
    },
 
-   created(){
-      const tickersData = localStorage.getItem('crypto-list')
+   created() {
+      const windowData = Object.fromEntries(
+         new URL(window.location).searchParams.entries()
+      )
+      if (windowData.filter) {
+         this.filter = windowData.filter
+      }
+ 
+      if (windowData.page) {
+         this.page = windowData.page
+      }
+
+      const tickersData = localStorage.getItem("crypto-list")
       if (tickersData) {
          this.tickers = JSON.parse(tickersData)
-         this.tickers.forEach(ticker => {
+         this.tickers.forEach((ticker) => {
             this.subscribeToUpdates(ticker.name)
          })
       }
@@ -214,23 +250,35 @@ export default {
    },
 
    methods: {
-      subscribeToUpdates(tickerName){
+      filteredTickers() {
+         const start = (this.page - 1) * 6
+         const end = this.page * 6
+
+         const filteredTickers = this.tickers.filter((ticker) =>
+            ticker.name.includes(this.filter.toUpperCase())
+         )
+         this.hasNextPage = filteredTickers.length > end
+         // this.totalPages = Math.ceil(filteredTickers.length/6)
+         return filteredTickers.slice(start, end)
+      },
+
+      subscribeToUpdates(tickerName) {
          setInterval(async () => {
-               const f = await fetch(
-                  `https://min-api.cryptocompare.com/data/price?fsym=${tickerName}&tsyms=USD&api_key=65ad22f82d5aed54178d88581783200e48d16eb5b1ad784fc00c298b45352e72`
-               )
-               const data = await f.json()
+            const f = await fetch(
+               `https://min-api.cryptocompare.com/data/price?fsym=${tickerName}&tsyms=USD&api_key=65ad22f82d5aed54178d88581783200e48d16eb5b1ad784fc00c298b45352e72`
+            )
+            const data = await f.json()
 
-               this.tickers.find((t) => t.name === tickerName).price =
-                  data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2)
+            // this.tickers.find((t) => t.name === tickerName).price =
+            //    data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2)
 
-               if (this.sel?.name === tickerName) {
-                  this.graph.push(data.USD)
-               }
-            }, 5000)
+            if (this.sel?.name === tickerName) {
+               this.graph.push(data.USD)
+            }
+         }, 10000)
 
-            this.ticker = ""
-            this.tips=[]
+         this.ticker = ""
+         this.tips = []
       },
 
       add() {
@@ -238,33 +286,31 @@ export default {
             name: this.ticker.toUpperCase(),
             price: "-",
          }
-         
+
          if (this.tickers.find((t) => t.name === currentTicker.name)) {
-           this.message='Такой тикер уже добавлен'
-           this.showMessage=true
-         } 
-         else if (currentTicker.name==='') {
-            this.message='Выберите тикер'
-            this.showMessage=true
-         }
-         else if (currentTicker.name==='КАБАН') {
-            this.message='ты кабан'
-            this.showMessage=true
-         }
-         else if (this.tips.length===0) {
-            this.message='Такого тикера не существует'
-            this.showMessage=true
-         }
-         else {
+            this.message = "Такой тикер уже добавлен"
+            this.showMessage = true
+         } else if (currentTicker.name === "") {
+            this.message = "Выберите тикер"
+            this.showMessage = true
+         } else if (currentTicker.name === "КАБАН") {
+            this.message = "ты кабан"
+            this.showMessage = true
+         } else if (this.tips.length === 0) {
+            this.message = "Такого тикера не существует"
+            this.showMessage = true
+         } else {
             this.tickers.push(currentTicker)
 
-            localStorage.setItem('crypto-list', JSON.stringify(this.tickers))
+            localStorage.setItem("crypto-list", JSON.stringify(this.tickers))
 
             this.subscribeToUpdates(currentTicker.name)
+
+            this.filter = ""
          }
       },
-      addTips(tip){
-         this.ticker=tip
+      addTips(tip) {
+         this.ticker = tip
          this.add()
       },
 
@@ -275,7 +321,7 @@ export default {
 
       handleDelete(tickerToRemove) {
          this.tickers = this.tickers.filter((t) => t !== tickerToRemove)
-         localStorage.setItem('crypto-list', JSON.stringify(this.tickers))
+         localStorage.setItem("crypto-list", JSON.stringify(this.tickers))
       },
 
       normalizeGraph() {
@@ -286,7 +332,7 @@ export default {
          )
       },
       autoComplite() {
-         this.showMessage=false
+         this.showMessage = false
          console.clear()
          this.tips = []
          let input = this.ticker.toUpperCase()
@@ -301,6 +347,29 @@ export default {
                console.log(coin.Symbol)
             }
          }
+      },
+   },
+   watch: {
+      filter() {
+         this.page = 1
+         window.history.pushState(
+            null,
+            document.title,
+            `${window.location.pathname}?filter=${this.filter}&page=${this.page}`
+         )
+         console.log(
+            Object.fromEntries(new URL(window.location).searchParams.entries())
+         )
+      },
+      page() {
+         window.history.pushState(
+            null,
+            document.title,
+            `${window.location.pathname}?filter=${this.filter}&page=${this.page}`
+         )
+         console.log(
+            Object.fromEntries(new URL(window.location).searchParams.entries())
+         )
       },
    },
 }
