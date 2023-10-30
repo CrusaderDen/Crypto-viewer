@@ -195,6 +195,16 @@ export default {
       }
    },
 
+   created(){
+      const tickersData = localStorage.getItem('crypto-list')
+      if (tickersData) {
+         this.tickers = JSON.parse(tickersData)
+         this.tickers.forEach(ticker => {
+            this.subscribeToUpdates(ticker.name)
+         })
+      }
+   },
+
    mounted: async function () {
       const coinsList = await fetch(
          "https://min-api.cryptocompare.com/data/all/coinlist?summary=true"
@@ -204,6 +214,25 @@ export default {
    },
 
    methods: {
+      subscribeToUpdates(tickerName){
+         setInterval(async () => {
+               const f = await fetch(
+                  `https://min-api.cryptocompare.com/data/price?fsym=${tickerName}&tsyms=USD&api_key=65ad22f82d5aed54178d88581783200e48d16eb5b1ad784fc00c298b45352e72`
+               )
+               const data = await f.json()
+
+               this.tickers.find((t) => t.name === tickerName).price =
+                  data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2)
+
+               if (this.sel?.name === tickerName) {
+                  this.graph.push(data.USD)
+               }
+            }, 5000)
+
+            this.ticker = ""
+            this.tips=[]
+      },
+
       add() {
          const currentTicker = {
             name: this.ticker.toUpperCase(),
@@ -228,22 +257,10 @@ export default {
          }
          else {
             this.tickers.push(currentTicker)
-            setInterval(async () => {
-               const f = await fetch(
-                  `https://min-api.cryptocompare.com/data/price?fsym=${currentTicker.name}&tsyms=USD&api_key=65ad22f82d5aed54178d88581783200e48d16eb5b1ad784fc00c298b45352e72`
-               )
-               const data = await f.json()
 
-               this.tickers.find((t) => t.name === currentTicker.name).price =
-                  data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2)
+            localStorage.setItem('crypto-list', JSON.stringify(this.tickers))
 
-               if (this.sel?.name === currentTicker.name) {
-                  this.graph.push(data.USD)
-               }
-            }, 10000)
-
-            this.ticker = ""
-            this.tips=[]
+            this.subscribeToUpdates(currentTicker.name)
          }
       },
       addTips(tip){
@@ -258,6 +275,7 @@ export default {
 
       handleDelete(tickerToRemove) {
          this.tickers = this.tickers.filter((t) => t !== tickerToRemove)
+         localStorage.setItem('crypto-list', JSON.stringify(this.tickers))
       },
 
       normalizeGraph() {
