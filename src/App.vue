@@ -118,7 +118,7 @@
                   <div class="px-4 py-5 sm:p-6 text-center">
                      <dt class="text-sm font-medium text-gray-500 truncate">{{ t.name }} - USD</dt>
                      <dd class="mt-1 text-3xl font-semibold text-gray-900">
-                        {{ t.price }}
+                        {{formatPrice(t.price)}}
                      </dd>
                   </div>
                   <div class="w-full border-t border-gray-200"></div>
@@ -186,6 +186,9 @@
 </template>
 
 <script>
+
+import {subscribeToTicker, unSubscribeFromTicker} from './api'
+
 export default {
    name: "App",
 
@@ -220,11 +223,17 @@ export default {
       }
 
       const tickersData = localStorage.getItem("crypto-list")
+
       if (tickersData) {
          this.tickers = JSON.parse(tickersData)
-         this.tickers.forEach((ticker) => {
-            this.subscribeToUpdates(ticker.name)
+         this.tickers.forEach(ticker =>  {
+            subscribeToTicker(ticker.name, newPrice => {
+               this.updateTicker(ticker.name, newPrice)
+            })
          })
+         setInterval(() => {
+            this.updateTickers
+         }, 5000);
       }
    },
 
@@ -279,25 +288,18 @@ export default {
    },
 
    methods: {
-      subscribeToUpdates(tickerName) {
-         setInterval(async () => {
-            const f = await fetch(
-               `https://min-api.cryptocompare.com/data/price?fsym=${tickerName}&tsyms=USD&api_key=65ad22f82d5aed54178d88581783200e48d16eb5b1ad784fc00c298b45352e72`
-            )
-            const data = await f.json()
-
-            this.tickers.find((t) => t.name === tickerName).price =
-               data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2)
-
-            if (this.selectedTicker?.name === tickerName) {
-               this.graph.push(data.USD)
-            }
-         }, 30000)
-
-         this.ticker = ""
-         this.tips = []
+      updateTicker(tickerName, price) {
+         this.tickers.filter(t=> t.name === tickerName).forEach(t=>{t.price = price})
       },
-     
+
+
+      formatPrice(price) {
+         if (price === '-') {
+            return price
+         }
+         return price > 1 ? price.toFixed(2) : price.toPrecision(2)
+      },
+      
       add() {
          const currentTicker = {
             name: this.ticker.toUpperCase(),
@@ -318,8 +320,13 @@ export default {
             this.showMessage = true
          } else {
             this.tickers = [...this.tickers, currentTicker]
-            this.subscribeToUpdates(currentTicker.name)
             this.filter = ""
+            this.ticker = ""
+            this.tips = []
+            subscribeToTicker(currentTicker.name, newPrice => {
+               this.updateTicker(currentTicker.name, newPrice)
+               
+            })
          }
       },
       addTips(tip) {
@@ -336,6 +343,7 @@ export default {
          if (this.selectedTicker === tickerToRemove) {
             this.selectedTicker = null
          }
+         unSubscribeFromTicker(tickerToRemove.name)
       },
 
       autoComplite() {
