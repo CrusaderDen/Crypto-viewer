@@ -289,7 +289,12 @@ export default {
 
    methods: {
       updateTicker(tickerName, price) {
-         this.tickers.filter(t=> t.name === tickerName).forEach(t=>{t.price = price})
+         this.tickers.filter(t=> t.name === tickerName).forEach(t=>{
+            if (t === this.selectedTicker) {
+               this.graph.push(price)
+            }
+            t.price = price})
+
       },
 
 
@@ -366,7 +371,10 @@ export default {
       },
 
       tickers(){
-         localStorage.setItem("crypto-list", JSON.stringify(this.tickers))
+         setTimeout(()=> {
+            localStorage.setItem("crypto-list", JSON.stringify(this.tickers))
+         },1000)
+         
       },
 
       paginatedTickers(){
